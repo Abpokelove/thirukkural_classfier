@@ -19,7 +19,10 @@ from app.services.verifier import (
 
 app = FastAPI(title="Thirukkural Classifier API", version="1.0.0")
 
-allowed_origins = {"http://localhost:5173"}
+allowed_origins = {
+    "http://localhost:5173",
+    "https://thirukkural-classfier.vercel.app",
+}
 allowed_origins.update(
     origin.strip().rstrip("/")
     for origin in os.getenv("FRONTEND_ORIGINS", "").split(",")

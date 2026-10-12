@@ -54,17 +54,17 @@ settings, then use **Manual Deploy → Clear build cache & deploy**.
 1. In Render, open the backend service's **Environment** settings.
 2. Add this Environment Variable:
    - **Key:** `FRONTEND_ORIGINS`
-   - **Value:** the exact Vercel production origin, such as
-     `https://thirukkural-classifier.vercel.app` (no trailing slash)
+   - **Value:** `https://thirukkural-classfier.vercel.app`
 3. If you use a custom frontend domain, include it as another comma-separated
    origin, for example:
-   `https://thirukkural-classifier.vercel.app,https://www.example.com`
+   `https://thirukkural-classfier.vercel.app,https://www.example.com`
 4. Save the variable and let Render restart/redeploy the backend.
 5. Open the Vercel site and try the verification and corpus browsing features.
 
-The backend allows `http://localhost:5173` for local development. Production
-frontend domains must be listed in `FRONTEND_ORIGINS`; Vercel preview domains
-are not automatically allowed.
+The backend allows `http://localhost:5173` for local development and the
+production Vercel origin above. Additional production frontend domains can be
+listed in `FRONTEND_ORIGINS`; Vercel preview domains are not automatically
+allowed.
 
 ## Local development
 
