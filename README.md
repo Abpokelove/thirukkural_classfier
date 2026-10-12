@@ -3,6 +3,21 @@
 This repository contains a Vite/React frontend and a FastAPI backend. Deploy the
 frontend to Vercel and the backend to Render as separate services.
 
+## Quotation classifications
+
+The verifier reports wording classifications such as exact, formatting-normalized,
+partial, modified, blended, paraphrased, fabricated, and ambiguous. It also checks
+whether every word from a complete canonical Kural occurs in order with no added
+words. If added words are detected before, within, or after the complete Kural,
+the result is `NOT_KURAL_STRUCTURE`; the original text-match category remains
+available as `content_status`.
+
+For example, Kural 1 followed by an extra Tamil word is reported as
+`NOT_KURAL_STRUCTURE`, with the extra word in `extra_words` and the closest
+source in `evidence.matched_kural`. An exact canonical verse remains
+`AUTHENTIC_EXACT` with `structure_status: KURAL_STRUCTURE`. Regression tests
+cover exact input and extra words appended to or inserted into a complete Kural.
+
 ## Deploy the backend to Render
 
 1. Push the latest project changes to GitHub.

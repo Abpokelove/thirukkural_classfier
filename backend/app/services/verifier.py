@@ -21,6 +21,7 @@ TEXT_STATUS_LABELS = {
     "AUTHENTIC_JOINING": "Authentic — Word Joining Difference",
     "AUTHENTIC_VARIANT": "Authentic Variant",
     "AUTHENTIC_PARTIAL": "Authentic Partial Quotation",
+    "NOT_KURAL_STRUCTURE": "Not a Kural Structure",
     "MODIFIED_MINIMAL": "Modified Quotation",
     "MODIFIED": "Modified Quotation",
     "BLENDED": "Blended From Multiple Kurals",
@@ -49,6 +50,31 @@ def normalize_text(value: str | None, level: str = "L0") -> str:
 
 def _tokenize_tamil(text: str) -> list[str]:
     return re.findall(r"[\u0B80-\u0BFF]+", text)
+
+
+def _extra_words_outside_canonical_kural(query: str, corpus: list[dict]) -> list[str]:
+    query_words = re.findall(r"[\u0B80-\u0BFF]+|[A-Za-z0-9]+", query)
+    for item in corpus:
+        canonical_words = _tokenize_tamil(normalize_text(item.get("text", ""), "L1"))
+        if not canonical_words or len(query_words) <= len(canonical_words):
+            continue
+
+        matched_indices: list[int] = []
+        query_index = 0
+        for word in canonical_words:
+            while query_index < len(query_words) and query_words[query_index] != word:
+                query_index += 1
+            if query_index == len(query_words):
+                break
+            matched_indices.append(query_index)
+            query_index += 1
+        else:
+            matched_index_set = set(matched_indices)
+            return [
+                word for index, word in enumerate(query_words)
+                if index not in matched_index_set
+            ]
+    return []
 
 
 def _blend_evidence(query: str, corpus: list[dict]) -> list[dict]:
@@ -317,6 +343,9 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
             "claimed_kural_number": claimed_kural_number,
             "best_candidate": None,
             "technical_label": "AMBIGUOUS",
+            "content_status": "AMBIGUOUS",
+            "structure_status": "NOT_ASSESSED",
+            "extra_words": [],
         }
 
     corpus = load_corpus()
@@ -393,6 +422,11 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
     if blend_matches:
         text_status = "BLENDED"
 
+    content_status = text_status
+    extra_words = _extra_words_outside_canonical_kural(l1, corpus)
+    if extra_words:
+        text_status = "NOT_KURAL_STRUCTURE"
+
     if best_match is None:
         return {
             "text_status": "FABRICATED",
@@ -407,6 +441,9 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
             "claimed_kural_number": claimed_kural_number,
             "best_candidate": None,
             "technical_label": "FABRICATED",
+            "content_status": "FABRICATED",
+            "structure_status": "NOT_ASSESSED",
+            "extra_words": [],
         }
 
     candidate_scores: list[dict] = []
@@ -499,12 +536,19 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         presentation_status = "PRESENTED_AS_PARAPHRASE"
     elif text_status in {"AUTHENTIC_PARTIAL"}: 
         presentation_status = "PRESENTED_AS_ORIGINAL"
+    elif text_status == "NOT_KURAL_STRUCTURE":
+        presentation_status = "NOT_KURAL_STRUCTURE"
     elif text_status == "FABRICATED":
         presentation_status = "NOT_CLEAR"
 
     user_label = TEXT_STATUS_LABELS.get(text_status, "Needs Review")
     why_lines = [
-        "The quotation was normalized and compared against the verified corpus.",
+        (
+            f"Extra word(s) were found around the wording of a canonical Kural: "
+            f"{', '.join(extra_words)}."
+            if extra_words
+            else "The quotation was normalized and compared against the verified corpus."
+        ),
         f"It was most similar to Kural {matched_kural} with a similarity score of {best_candidate['score']:.2f}.",
         f"Coverage of the matched canonical text was {coverage:.2f} and contiguous evidence was {'present' if contiguous else 'not present'}.",
     ]
@@ -527,6 +571,10 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         why_lines.append("No sufficient textual or semantic evidence connected the quotation to the reference corpus.")
     elif text_status == "PARAPHRASED":
         why_lines.append("The wording shifts semantically while preserving the general idea, rather than matching the canonical passage.")
+    if extra_words:
+        why_lines.append(
+            f"All words of Kural {matched_kural} appear in order, but the additional words mean the submitted text is not a canonical Kural structure."
+        )
 
     result = {
         "text_status": text_status,
@@ -562,6 +610,15 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         },
         "why": why_lines,
         "claimed_kural_number": claimed_kural_number,
+        "content_status": content_status,
+        "structure_status": (
+            "NOT_KURAL_STRUCTURE"
+            if extra_words
+            else "KURAL_STRUCTURE"
+            if content_status in {"AUTHENTIC_EXACT", "AUTHENTIC_FORMAT", "AUTHENTIC_JOINING"}
+            else "NOT_ASSESSED"
+        ),
+        "extra_words": extra_words,
         "best_candidate": {
             "kural_number": matched_kural,
             "chapter": best_match.get("chapter"),

@@ -54,9 +54,31 @@ def test_exact_kural_from_processed_corpus():
     kural = load_corpus()[0]
     exact = verify_quote(kural["text"])
     assert exact["text_status"] == "AUTHENTIC_EXACT"
+    assert exact["structure_status"] == "KURAL_STRUCTURE"
     assert exact["possible_originals"][0]["kural_number"] == 1
     assert exact["possible_originals"][0]["score"] == 1.0
     assert exact["signals"]["semantic_similarity"] is None
+
+
+def test_extra_words_after_full_kural_are_not_kural_structure():
+    text = load_corpus()[0]["text"]
+    result = verify_quote(f"{text} கூடுதல்")
+
+    assert result["text_status"] == "NOT_KURAL_STRUCTURE"
+    assert result["content_status"] == "AUTHENTIC_PARTIAL"
+    assert result["structure_status"] == "NOT_KURAL_STRUCTURE"
+    assert result["extra_words"] == ["கூடுதல்"]
+    assert result["evidence"]["matched_kural"] == 1
+
+
+def test_extra_words_inserted_into_full_kural_are_not_kural_structure():
+    text = load_corpus()[0]["text"].replace(" ஆதி ", " கூடுதல் ஆதி ")
+    result = verify_quote(text)
+
+    assert result["text_status"] == "NOT_KURAL_STRUCTURE"
+    assert result["structure_status"] == "NOT_KURAL_STRUCTURE"
+    assert result["extra_words"] == ["கூடுதல்"]
+    assert result["evidence"]["matched_kural"] == 1
 
 
 def test_formatting_whitespace_is_separated_from_exact_text():

@@ -13,6 +13,9 @@ type VerificationResult = {
   text_status: string
   human_label: string
   technical_label: string
+  content_status?: string
+  structure_status?: string
+  extra_words?: string[]
   presentation_status: string
   attribution_status: string
   normalization: { L0_match: boolean; L1_match: boolean; L2_match: boolean; L0: string; L1: string; L2: string }
@@ -144,6 +147,9 @@ function App() {
         text_status: 'AMBIGUOUS',
         human_label: 'Needs Review',
         technical_label: 'AMBIGUOUS',
+        content_status: 'AMBIGUOUS',
+        structure_status: 'NOT_ASSESSED',
+        extra_words: [],
         presentation_status: 'NOT_CLEAR',
         attribution_status: 'NOT_PROVIDED',
         normalization: { L0_match: false, L1_match: false, L2_match: false, L0: '', L1: '', L2: '' },
@@ -319,15 +325,29 @@ function App() {
                 </div>
                 <p className="result-summary">{result.why?.[0] ?? 'No summary is available yet.'}</p>
 
+                {result.structure_status === 'NOT_KURAL_STRUCTURE' && (
+                  <div className="attribution-result unsupported" role="alert">
+                    <span className="mini-label">Kural structure check</span>
+                    <strong>Not a Kural Structure</strong>
+                    <p>
+                      Extra word(s): {result.extra_words?.join(', ')}. The wording of Kural {result.evidence.matched_kural} appears in order, but the added words are not part of that canonical Kural.
+                    </p>
+                    {result.content_status && <p>Text match before the structure check: {result.content_status}.</p>}
+                  </div>
+                )}
+
                 {result.claimed_kural_number !== null && result.claimed_kural_number !== undefined && (
                   <div className={`attribution-result ${result.attribution_status.toLowerCase()}`} role="status">
                     <span className="mini-label">Separate attribution check</span>
                     <strong>
-                      {result.attribution_status === 'INCORRECT' ? 'Wrong Kural Number' :
+                      {result.structure_status === 'NOT_KURAL_STRUCTURE' ? 'Closest Kural Source' :
+                        result.attribution_status === 'INCORRECT' ? 'Wrong Kural Number' :
                         result.attribution_status === 'CORRECT' ? 'Kural Number Correct' : 'Kural Number Unsupported'}
                     </strong>
                     <p>
-                      {result.attribution_status === 'INCORRECT'
+                      {result.structure_status === 'NOT_KURAL_STRUCTURE'
+                        ? `The closest canonical source is Kural ${result.evidence.matched_kural}; the extra words mean the full submission is not a Kural structure.`
+                        : result.attribution_status === 'INCORRECT'
                         ? `This is an authentic quotation from Kural ${result.evidence.matched_kural}, not Kural ${result.claimed_kural_number}.`
                         : result.attribution_status === 'CORRECT'
                           ? `The quotation matches the supplied Kural ${result.claimed_kural_number}.`
