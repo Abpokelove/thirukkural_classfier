@@ -46,6 +46,7 @@ type BatchResult = {
   result: VerificationResult
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 const defaultQuote = 'அகர முதல எழுத்தெல்லாம் ஆதி பகவன் முதற்றே உலகு.'
 
 function App() {
@@ -74,8 +75,8 @@ function App() {
     const loadMeta = async () => {
       try {
         const [statsRes, validationRes] = await Promise.all([
-          fetch('/api/corpus/stats'),
-          fetch('/api/validation'),
+          fetch(`${API_BASE_URL}/api/corpus/stats`),
+          fetch(`${API_BASE_URL}/api/validation`),
         ])
         const nextStats = await statsRes.json()
         const nextValidation = await validationRes.json()
@@ -98,7 +99,7 @@ function App() {
       if (corpusQuery.trim()) params.set('query', corpusQuery.trim())
       if (corpusChapter) params.set('chapter', corpusChapter)
       try {
-        const response = await fetch(`/api/corpus/browse?${params.toString()}`)
+        const response = await fetch(`${API_BASE_URL}/api/corpus/browse?${params.toString()}`)
         if (!response.ok) throw new Error(`Corpus request failed (${response.status})`)
         const payload = await response.json()
         if (current) {
@@ -128,7 +129,7 @@ function App() {
   async function handleVerify() {
     setLoading(true)
     try {
-      const response = await fetch('/api/verify', {
+      const response = await fetch(`${API_BASE_URL}/api/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -185,7 +186,7 @@ function App() {
         }
         setLoading(true)
         try {
-          const response = await fetch('/api/batch/verify', {
+          const response = await fetch(`${API_BASE_URL}/api/batch/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(items),

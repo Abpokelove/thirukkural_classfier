@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.services.verifier import (
@@ -14,7 +17,20 @@ from app.services.verifier import (
     verify_quote,
 )
 
-app = FastAPI(title="Thirukkural Reliability Lab", version="1.0.0")
+app = FastAPI(title="Thirukkural Classifier API", version="1.0.0")
+
+allowed_origins = {"http://localhost:5173"}
+allowed_origins.update(
+    origin.strip().rstrip("/")
+    for origin in os.getenv("FRONTEND_ORIGINS", "").split(",")
+    if origin.strip()
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=sorted(allowed_origins),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class VerifyRequest(BaseModel):
@@ -37,7 +53,7 @@ class BatchVerifyItem(BaseModel):
 
 @app.get("/api/health")
 def health_check() -> dict:
-    return {"status": "ok", "service": "thirukkural-verifier"}
+    return {"status": "ok", "service": "thirukkural-classifier-api"}
 
 
 @app.get("/api/corpus/stats")
