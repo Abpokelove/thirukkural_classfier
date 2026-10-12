@@ -1,0 +1,10 @@
+{
+  "source": "Project Madurai",
+  "source_file": "thirukkural.html",
+  "corpus_size": 1330,
+  "chapter_count": 133,
+  "encoding": "UTF-8",
+  "normalization": "NFC",
+  "generated_at": "2026-10-08T12:12:59.315591+00:00",
+  "source_checksum": "ec245e099ba4c5923b4929fe965b840b7fdd3fa3cc1963d2a6a294e20ea2a0a4"
+}
