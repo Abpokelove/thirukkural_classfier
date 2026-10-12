@@ -9,7 +9,9 @@ frontend to Vercel and the backend to Render as separate services.
 2. In Render, select **New + → Web Service**, connect GitHub, and choose
    `Abpokelove/thirukkural_classfier`.
 3. Set the service name to `thirukkural-classifier-api`.
-4. Select **Python 3** and the branch containing the deployment changes.
+4. Select **Python 3** and the branch containing the deployment changes. The
+   repository's `.python-version` file pins Render to Python 3.12.10; do not
+   override it with Python 3.14.
 5. Leave **Root Directory** empty. The backend reads the corpus from
    `data/processed/thirukkural.json` at the repository root.
 6. Choose the Singapore region (or another region close to your users). Select
@@ -21,6 +23,13 @@ frontend to Vercel and the backend to Render as separate services.
    URL, for example `https://thirukkural-classifier-api.onrender.com`.
 9. Check `https://YOUR-RENDER-URL/api/health`. The response should have
    `"status": "ok"`.
+
+The Python version pin is needed because the current dependency lock versions
+include `pydantic-core==2.23.4`, which does not provide a Python 3.14 wheel.
+When Render uses Python 3.14, pip tries to compile it from source and the build
+fails. Python 3.12 has a compatible prebuilt wheel. For an already-created
+Render service, also set `PYTHON_VERSION` to `3.12.10` in its Environment
+settings, then use **Manual Deploy → Clear build cache & deploy**.
 
 ## Deploy the frontend to Vercel
 
