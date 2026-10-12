@@ -7,16 +7,19 @@ frontend to Vercel and the backend to Render as separate services.
 
 The verifier reports wording classifications such as exact, formatting-normalized,
 partial, modified, blended, paraphrased, fabricated, and ambiguous. It also checks
-whether every word from a complete canonical Kural occurs in order with no added
-words. If added words are detected before, within, or after the complete Kural,
-the result is `NOT_KURAL_STRUCTURE`; the original text-match category remains
-available as `content_status`.
+whether a complete Kural preserves the source's two canonical lines, line order,
+and punctuation. This corresponds to the traditional four-seer first line and
+three-seer second line; the verifier compares with the corpus's canonical lines
+rather than treating whitespace-separated words as seer. A one-line rendering,
+changed line division, missing final period, or extra words causes
+`NOT_KURAL_STRUCTURE`; the original text-match category remains available as
+`content_status`.
 
-For example, Kural 1 followed by an extra Tamil word is reported as
-`NOT_KURAL_STRUCTURE`, with the extra word in `extra_words` and the closest
-source in `evidence.matched_kural`. An exact canonical verse remains
-`AUTHENTIC_EXACT` with `structure_status: KURAL_STRUCTURE`. Regression tests
-cover exact input and extra words appended to or inserted into a complete Kural.
+For example, an exact two-line Kural 1 including its final period is reported as
+`AUTHENTIC_EXACT` with `structure_status: KURAL_STRUCTURE`. The same text on one
+line or without its final period is reported as `NOT_KURAL_STRUCTURE`, with the
+closest source in `evidence.matched_kural` and the structural findings in
+`structure_issues`. Extra words are listed in `extra_words`.
 
 ## Deploy the backend to Render
 

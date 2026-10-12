@@ -52,29 +52,78 @@ def _tokenize_tamil(text: str) -> list[str]:
     return re.findall(r"[\u0B80-\u0BFF]+", text)
 
 
-def _extra_words_outside_canonical_kural(query: str, corpus: list[dict]) -> list[str]:
+def _extra_words_outside_canonical_kural(
+    query: str,
+    item: dict,
+) -> list[str] | None:
     query_words = re.findall(r"[\u0B80-\u0BFF]+|[A-Za-z0-9]+", query)
-    for item in corpus:
-        canonical_words = _tokenize_tamil(normalize_text(item.get("text", ""), "L1"))
-        if not canonical_words or len(query_words) <= len(canonical_words):
-            continue
+    canonical_words = _tokenize_tamil(normalize_text(item.get("text", ""), "L1"))
+    if not canonical_words:
+        return None
 
-        matched_indices: list[int] = []
-        query_index = 0
-        for word in canonical_words:
-            while query_index < len(query_words) and query_words[query_index] != word:
-                query_index += 1
-            if query_index == len(query_words):
-                break
-            matched_indices.append(query_index)
+    matched_indices: list[int] = []
+    query_index = 0
+    for word in canonical_words:
+        while query_index < len(query_words) and query_words[query_index] != word:
             query_index += 1
-        else:
-            matched_index_set = set(matched_indices)
-            return [
-                word for index, word in enumerate(query_words)
-                if index not in matched_index_set
-            ]
-    return []
+        if query_index == len(query_words):
+            return None
+        matched_indices.append(query_index)
+        query_index += 1
+
+    matched_index_set = set(matched_indices)
+    return [
+        word for index, word in enumerate(query_words)
+        if index not in matched_index_set
+    ]
+
+
+def _contains_all_canonical_words(query: str, item: dict) -> bool:
+    query_word_counts = Counter(re.findall(r"[\u0B80-\u0BFF]+", query))
+    canonical_word_counts = Counter(
+        _tokenize_tamil(normalize_text(item.get("text", ""), "L1"))
+    )
+    return bool(canonical_word_counts) and all(
+        query_word_counts[word] >= count
+        for word, count in canonical_word_counts.items()
+    )
+
+
+def _exact_canonical_text_match(raw_text: str, item: dict) -> bool:
+    canonical_lines = [item.get("line1"), item.get("line2")]
+    return raw_text == item.get("text") or (
+        all(canonical_lines)
+        and raw_text == "\n".join(str(line) for line in canonical_lines)
+    )
+
+
+def _kural_structure_issues(raw_text: str, item: dict) -> list[str]:
+    submitted_lines = [
+        normalize_text(line, "L1")
+        for line in raw_text.splitlines()
+        if normalize_text(line, "L1")
+    ]
+    expected_lines = [
+        normalize_text(str(item.get(key) or ""), "L1")
+        for key in ("line1", "line2")
+    ]
+    if not all(expected_lines):
+        return ["The reference corpus does not contain both canonical verse lines."]
+
+    issues: list[str] = []
+    if len(submitted_lines) != len(expected_lines):
+        issues.append(
+            f"Expected the canonical two-line layout but received {len(submitted_lines)} non-empty line(s)."
+        )
+    for line_number, (submitted, expected) in enumerate(
+        zip(submitted_lines, expected_lines),
+        start=1,
+    ):
+        if submitted != expected:
+            issues.append(
+                f"Submitted line {line_number} differs from the canonical line, including its punctuation."
+            )
+    return issues
 
 
 def _blend_evidence(query: str, corpus: list[dict]) -> list[dict]:
@@ -359,7 +408,7 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         item_l0 = normalize_text(item.get("text", ""), "L0")
         item_l1 = normalize_text(item.get("text", ""), "L1")
         item_l2 = normalize_text(item.get("text", ""), "L2")
-        if item_l0 == l0:
+        if item_l0 == l0 or _exact_canonical_text_match(raw_text, item):
             l0_matches.append(item)
         if item_l1 == l1:
             l1_matches.append(item)
@@ -423,8 +472,21 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         text_status = "BLENDED"
 
     content_status = text_status
-    extra_words = _extra_words_outside_canonical_kural(l1, corpus)
-    if extra_words:
+    extra_words = _extra_words_outside_canonical_kural(l1, best_match) if best_match else None
+    structure_issues = (
+        _kural_structure_issues(raw_text, best_match)
+        if best_match and _contains_all_canonical_words(l1, best_match)
+        else []
+    )
+    structure_status = (
+        "NOT_KURAL_STRUCTURE"
+        if structure_issues
+        else "KURAL_STRUCTURE"
+        if best_match and _contains_all_canonical_words(l1, best_match)
+        else "NOT_ASSESSED"
+    )
+    extra_words = extra_words or []
+    if structure_status == "NOT_KURAL_STRUCTURE":
         text_status = "NOT_KURAL_STRUCTURE"
 
     if best_match is None:
@@ -444,6 +506,7 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
             "content_status": "FABRICATED",
             "structure_status": "NOT_ASSESSED",
             "extra_words": [],
+            "structure_issues": [],
         }
 
     candidate_scores: list[dict] = []
@@ -544,9 +607,9 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
     user_label = TEXT_STATUS_LABELS.get(text_status, "Needs Review")
     why_lines = [
         (
-            f"Extra word(s) were found around the wording of a canonical Kural: "
-            f"{', '.join(extra_words)}."
-            if extra_words
+            f"The submission does not preserve the canonical Kural structure: "
+            f"{' '.join(structure_issues)}"
+            if structure_issues
             else "The quotation was normalized and compared against the verified corpus."
         ),
         f"It was most similar to Kural {matched_kural} with a similarity score of {best_candidate['score']:.2f}.",
@@ -583,7 +646,11 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         "presentation_status": presentation_status,
         "attribution_status": attribution_status,
         "normalization": {
-            "L0_match": any(normalize_text(item.get("text", ""), "L0") == l0 for item in corpus),
+            "L0_match": any(
+                normalize_text(item.get("text", ""), "L0") == l0
+                or _exact_canonical_text_match(raw_text, item)
+                for item in corpus
+            ),
             "L1_match": any(normalize_text(item.get("text", ""), "L1") == l1 for item in corpus),
             "L2_match": any(normalize_text(item.get("text", ""), "L2") == l2 for item in corpus),
             "L0": l0,
@@ -611,14 +678,9 @@ def verify_quote(quote: str | None, claimed_kural_number: int | str | None = Non
         "why": why_lines,
         "claimed_kural_number": claimed_kural_number,
         "content_status": content_status,
-        "structure_status": (
-            "NOT_KURAL_STRUCTURE"
-            if extra_words
-            else "KURAL_STRUCTURE"
-            if content_status in {"AUTHENTIC_EXACT", "AUTHENTIC_FORMAT", "AUTHENTIC_JOINING"}
-            else "NOT_ASSESSED"
-        ),
+        "structure_status": structure_status,
         "extra_words": extra_words,
+        "structure_issues": structure_issues,
         "best_candidate": {
             "kural_number": matched_kural,
             "chapter": best_match.get("chapter"),

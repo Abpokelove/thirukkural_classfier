@@ -50,10 +50,12 @@ def test_corpus_browse_paginates_and_searches_tamil():
     assert search_result["items"][0]["kural_number"] == 1
 
 
-def test_exact_kural_from_processed_corpus():
+def test_canonical_two_line_kural_from_processed_corpus():
     kural = load_corpus()[0]
-    exact = verify_quote(kural["text"])
+    exact = verify_quote(f"{kural['line1']}\n{kural['line2']}")
     assert exact["text_status"] == "AUTHENTIC_EXACT"
+    assert exact["content_status"] == "AUTHENTIC_EXACT"
+    assert exact["normalization"]["L0_match"] is True
     assert exact["structure_status"] == "KURAL_STRUCTURE"
     assert exact["possible_originals"][0]["kural_number"] == 1
     assert exact["possible_originals"][0]["score"] == 1.0
@@ -61,8 +63,8 @@ def test_exact_kural_from_processed_corpus():
 
 
 def test_extra_words_after_full_kural_are_not_kural_structure():
-    text = load_corpus()[0]["text"]
-    result = verify_quote(f"{text} கூடுதல்")
+    kural = load_corpus()[0]
+    result = verify_quote(f"{kural['line1']}\n{kural['line2']} கூடுதல்")
 
     assert result["text_status"] == "NOT_KURAL_STRUCTURE"
     assert result["content_status"] == "AUTHENTIC_PARTIAL"
@@ -72,12 +74,38 @@ def test_extra_words_after_full_kural_are_not_kural_structure():
 
 
 def test_extra_words_inserted_into_full_kural_are_not_kural_structure():
-    text = load_corpus()[0]["text"].replace(" ஆதி ", " கூடுதல் ஆதி ")
-    result = verify_quote(text)
+    kural = load_corpus()[0]
+    line1 = kural["line1"].replace(" ஆதி", " கூடுதல் ஆதி")
+    result = verify_quote(f"{line1}\n{kural['line2']}")
 
     assert result["text_status"] == "NOT_KURAL_STRUCTURE"
     assert result["structure_status"] == "NOT_KURAL_STRUCTURE"
     assert result["extra_words"] == ["கூடுதல்"]
+    assert result["evidence"]["matched_kural"] == 1
+
+
+def test_canonical_two_line_layout_and_final_punctuation_are_required():
+    kural = load_corpus()[0]
+    correct_layout = verify_quote(f"{kural['line1']}\n{kural['line2']}")
+    flattened = verify_quote(kural["text"])
+    missing_period = verify_quote(f"{kural['line1']}\n{kural['line2'].removesuffix('.')}")
+
+    assert correct_layout["text_status"] == "AUTHENTIC_EXACT"
+    assert correct_layout["structure_status"] == "KURAL_STRUCTURE"
+    assert flattened["text_status"] == "NOT_KURAL_STRUCTURE"
+    assert flattened["structure_status"] == "NOT_KURAL_STRUCTURE"
+    assert missing_period["text_status"] == "NOT_KURAL_STRUCTURE"
+    assert missing_period["structure_status"] == "NOT_KURAL_STRUCTURE"
+    assert any("punctuation" in issue for issue in missing_period["structure_issues"])
+
+
+def test_reordered_canonical_lines_are_not_kural_structure():
+    kural = load_corpus()[0]
+    result = verify_quote(f"{kural['line2']}\n{kural['line1']}")
+
+    assert result["text_status"] == "NOT_KURAL_STRUCTURE"
+    assert result["structure_status"] == "NOT_KURAL_STRUCTURE"
+    assert result["extra_words"] == []
     assert result["evidence"]["matched_kural"] == 1
 
 

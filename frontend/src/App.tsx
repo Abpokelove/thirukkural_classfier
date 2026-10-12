@@ -16,6 +16,7 @@ type VerificationResult = {
   content_status?: string
   structure_status?: string
   extra_words?: string[]
+  structure_issues?: string[]
   presentation_status: string
   attribution_status: string
   normalization: { L0_match: boolean; L1_match: boolean; L2_match: boolean; L0: string; L1: string; L2: string }
@@ -150,6 +151,7 @@ function App() {
         content_status: 'AMBIGUOUS',
         structure_status: 'NOT_ASSESSED',
         extra_words: [],
+        structure_issues: [],
         presentation_status: 'NOT_CLEAR',
         attribution_status: 'NOT_PROVIDED',
         normalization: { L0_match: false, L1_match: false, L2_match: false, L0: '', L1: '', L2: '' },
@@ -330,8 +332,10 @@ function App() {
                     <span className="mini-label">Kural structure check</span>
                     <strong>Not a Kural Structure</strong>
                     <p>
-                      Extra word(s): {result.extra_words?.join(', ')}. The wording of Kural {result.evidence.matched_kural} appears in order, but the added words are not part of that canonical Kural.
+                      The submission does not follow Kural {result.evidence.matched_kural}’s canonical form: four seer in the first line, three in the second, and the source punctuation.
                     </p>
+                    {result.structure_issues?.map((issue) => <p key={issue}>{issue}</p>)}
+                    {!!result.extra_words?.length && <p>Extra word(s): {result.extra_words.join(', ')}</p>}
                     {result.content_status && <p>Text match before the structure check: {result.content_status}.</p>}
                   </div>
                 )}
